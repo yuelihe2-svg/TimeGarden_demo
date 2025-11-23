@@ -71,8 +71,41 @@ const getThreadMessages = async (req, res) => {
   }
 };
 
+/**
+ * Post a new message to a thread
+ */
+const postMessage = async (req, res) => {
+  try {
+    const threadId = req.params.id;
+    const userId = req.userId; // 从中间件获取当前用户ID (目前写死为2)
+    const { body } = req.body; // 前端传来的消息内容
+
+    if (!body) {
+      return res.status(400).json({ error: 'Message body is required' });
+    }
+
+    // 1. 插入新消息
+    await pool.query(
+      'INSERT INTO messages (thread_id, user_id, body) VALUES (?, ?, ?)',
+      [threadId, userId, body]
+    );
+
+    // 2. 更新 Thread 的最后更新时间 (这样它会排到列表最上面)
+    await pool.query(
+      'UPDATE threads SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [threadId]
+    );
+
+    res.json({ success: true, message: 'Message sent' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+};
+
 module.exports = {
   getThreads,
-  getThreadMessages
+  getThreadMessages,
+  postMessage
 };
 

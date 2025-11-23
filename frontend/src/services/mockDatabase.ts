@@ -66,6 +66,26 @@ export const getThreadMessages = async (threadId: number): Promise<ChatMessage[]
   return fetchAPI<ChatMessage[]>(`/threads/${threadId}/messages`);
 };
 
+
+// 发送消息的 API 调用
+export const sendMessage = async (threadId: number, body: string): Promise<any> => {
+  try {
+    const res = await fetch(`${API_URL}/threads/${threadId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // 如果以后有真实 token，这里需要加 Authorization 头
+      },
+      body: JSON.stringify({ body }),
+    });
+    if (!res.ok) throw new Error('Failed to send message');
+    return await res.json();
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+};
+
 export const getReviewsForUser = async (userId: number): Promise<Review[]> => {
   return fetchAPI<Review[]>(`/reviews/user/${userId}`);
 };

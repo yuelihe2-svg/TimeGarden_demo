@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Send, Paperclip, MoreVertical, Phone, Video, Loader2 } from 'lucide-react';
-import { getMyThreads, getThreadMessages } from '../services/mockDatabase';
+// 注意：这里引入了 sendMessage，确保上面的 mockDatabase.ts 文件已更新
+import { getMyThreads, getThreadMessages, sendMessage } from '../services/mockDatabase';
 import { ChatThread, ChatMessage } from '../types';
 
 const Messages: React.FC = () => {
@@ -10,19 +11,49 @@ const Messages: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // 初始化：加载左侧聊天列表
   useEffect(() => {
     getMyThreads().then(t => {
-        setThreads(t);
-        if (t.length > 0) setActiveThreadId(t[0].id);
-        setLoading(false);
+      setThreads(t);
+      if (t.length > 0) setActiveThreadId(t[0].id);
+      setLoading(false);
     });
   }, []);
 
+  // 当选中的聊天变化时，加载右侧消息记录
   useEffect(() => {
     if (activeThreadId) {
-        getThreadMessages(activeThreadId).then(setMessages);
+      getThreadMessages(activeThreadId).then(setMessages);
     }
   }, [activeThreadId]);
+
+  // ▼▼▼ 新增的核心功能：处理发送消息 ▼▼▼
+  const handleSendMessage = async () => {
+    // 如果输入为空，或者没有选中的聊天，直接返回
+    if (!inputValue.trim() || !activeThreadId) return;
+
+    try {
+      // 1. 调用 API 发送消息 (这一步会存入数据库)
+      await sendMessage(activeThreadId, inputValue);
+      
+      // 2. 清空输入框
+      setInputValue('');
+      
+      // 3. 重新获取当前聊天的最新消息 (这样你就能看到自己刚发的消息了)
+      const updatedMessages = await getThreadMessages(activeThreadId);
+      setMessages(updatedMessages);
+      
+      // 4. (可选) 重新获取左侧列表，为了更新“最后一条消息”的时间和预览
+      const updatedThreads = await getMyThreads();
+      setThreads(updatedThreads);
+      
+    } catch (error) {
+      console.error("Failed to send message", error);
+      // 如果后端没开，或者数据库报错，这里会弹窗提示
+      alert("发送失败，请确保后端服务已启动！");
+    }
+  };
+  // ▲▲▲ 新增结束 ▲▲▲
 
   const activeThread = threads.find(t => t.id === activeThreadId);
   const colors = ['bg-orange-500', 'bg-blue-500', 'bg-green-500', 'bg-purple-500'];
@@ -124,14 +155,19 @@ const Messages: React.FC = () => {
                         rows={1}
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
+                        // ▼▼▼ 修改了这里：绑定回车发送事件 ▼▼▼
                         onKeyDown={(e) => {
                             if(e.key === 'Enter' && !e.shiftKey) {
                                 e.preventDefault();
-                                setInputValue('');
+                                handleSendMessage(); // 按回车发送
                             }
                         }}
                     />
-                    <button className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-sm">
+                    {/* ▼▼▼ 修改了这里：绑定点击发送事件 ▼▼▼ */}
+                    <button 
+                        onClick={handleSendMessage}
+                        className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-sm"
+                    >
                         <Send size={18} />
                     </button>
                 </div>
